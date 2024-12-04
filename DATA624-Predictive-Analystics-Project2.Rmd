@@ -243,7 +243,7 @@ The following calculates and visualizes the correlations between numeric variabl
 
 # Select the numeric variables
 numeric_data <- Student_Train %>%
-  select(where(is.numeric))
+  dplyr::select(where(is.numeric))
 
 # Calculate the correlation matrix
 correlation_matrix <- cor(numeric_data, use = "complete.obs")
@@ -254,10 +254,16 @@ melted_corr <- melt(correlation_matrix)
 # Plot the correlation heatmap
 ggplot(melted_corr, aes(x = Var1, y = Var2, fill = value)) +
   geom_tile(color = "gray") +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "gray", midpoint = 0, limit = c(-1, 1), space = "Lab") +
+  scale_fill_gradientn(
+    colors = c("blue", "lightblue", "white", "pink", "red"),
+    values = scales::rescale(c(-1, -0.5, 0, 0.5, 1)),
+    limits = c(-1, 1),
+    space = "Lab"
+  ) +
   theme_minimal() +
   labs(title = "Correlation Heatmap", x = "Variables", y = "Variables", fill = "Correlation") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 
 
 ```
@@ -279,9 +285,29 @@ for (i in colnames(Student_Train[-1])) {
 }
 
 
+```
 
+
+```{r}
+numeric_columns <- sapply(Student_Train, is.numeric)
+
+numeric_data <- Student_Train[, numeric_columns]
 
 ```
+```{r}
+par(mfrow = c(3, 4), mar = c(2, 2, 2, 1))  # Smaller margins for each plot
+for (i in seq_along(numeric_data)) {
+  hist(numeric_data[[i]], 
+       main = colnames(numeric_data)[i], 
+       xlab = colnames(numeric_data)[i], 
+       col = "darkblue", 
+       border = "white")
+}
+
+```
+
+Variables that are highly Right-Skewed are: PSC, PSC Fill, PSC CO2,Hyd Pressure1-3, Oxygen Filler, Air Pressurer.
+A suggested Transformation would be to apply a logarithmic or a square root transformation to reduce skewness.
 
 The clean_data function is a comprehensive data preprocessing pipeline that imputes missing values, removes outliers, scales features, and removes constant columns from the dataset. It is applied to the Student_Train dataset to produce a cleaned version, Student_Cleaned, ready for further analysis or modeling. The function uses various techniques like Predictive Mean Matching for imputation, Z-score normalization for scaling, and IQR for outlier detection.
 
@@ -360,15 +386,15 @@ Student_Cleaned %>%
   theme_minimal()
 
 # Visualize distributions after cleaning
-Student_Cleaned %>%
-  select_if(is.numeric) %>%
-  gather(key = "Feature", value = "Value") %>%
-  ggplot(aes(x = Value)) +
-  geom_histogram(bins = 30, fill = "#785B8F", alpha = 0.7) +
-  facet_wrap(~ Feature, ncol = 4) +
-  labs(title = "Feature Distributions After Cleaning") +
-  theme_minimal()
-
+numeric_datac <- Student_Cleaned[, numeric_columns]
+par(mfrow = c(3, 4), mar = c(2, 2, 2, 1))  # Smaller margins for each plot
+for (i in seq_along(numeric_datac)) {
+  hist(numeric_datac[[i]], 
+       main = colnames(numeric_datac)[i], 
+       xlab = colnames(numeric_datac)[i], 
+       col = "darkblue", 
+       border = "white")
+}
 ```
 
 
@@ -392,7 +418,55 @@ suppressWarnings(densityplot(mice_model, ~Carb_Volume))  # Use the renamed varia
 
 
 ```
+```{r}
+colnames(Student_Cleaned) <- gsub(" ", "_", colnames(Student_Cleaned))
+```
 
+Transformations
+For the right skewed variables we will use square root transformation 
+```{r}
+# List of right-skewed and left-skewed variables
+right_skewed_vars <- c("PSC", "PSC_Fill", "PSC_CO2", "Hyd_Pressure1", "Hyd_Pressure2", "Hyd_Pressure3", "Oxygen_Filler", "Air_Pressurer")
 
+for (var in right_skewed_vars) {
+  new_var_name <- paste0("sqr_", var)
+  # Ensure values are non-negative before applying square root
+  min_val <- min(Student_Cleaned[[var]], na.rm = TRUE)
+  if (min_val < 0) {
+    Student_Cleaned[[new_var_name]] <- sqrt(Student_Cleaned[[var]] - min_val + 1e-5)
+  } else {
+    Student_Cleaned[[new_var_name]] <- sqrt(Student_Cleaned[[var]])
+  }
+}
 
+```
+```{r}
+library(ggplot2)
+library(gridExtra)
 
+vars_to_plot <- c("PSC", "Hyd_Pressure1", "Hyd_Pressure2", "Hyd_Pressure3","PSC_Fill", "PSC_CO2", "Oxygen_Filler", "Air_Pressurer")
+
+# Loop through each variable and create separate grids
+for (var in vars_to_plot) {
+  # Plot for the original variable
+  p1 <- ggplot(Student_Cleaned, aes_string(x = var)) +
+    geom_histogram(binwidth = 0.1, color = "black", fill = "lightblue", alpha = 0.7) +
+    ggtitle(paste("Original:", var)) +
+    theme_minimal()
+
+  if (var %in% right_skewed_vars) {
+    transformed_var <- paste0("sqr_", var)
+  } else if (var %in% left_skewed_vars) {
+    transformed_var <- paste0("log_", var)
+  }
+
+  # Plot for the transformed variable
+  p2 <- ggplot(Student_Cleaned, aes_string(x = transformed_var)) +
+    geom_histogram(binwidth = 0.1, color = "black", fill = "lightgreen", alpha = 0.7) +
+    ggtitle(paste("Transformed:", transformed_var)) +
+    theme_minimal()
+
+  grid.arrange(p1, p2, ncol = 2, top = paste("Histograms for", var))
+}
+
+```
