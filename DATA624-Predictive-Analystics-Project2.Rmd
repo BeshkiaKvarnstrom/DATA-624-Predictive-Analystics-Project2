@@ -470,3 +470,107 @@ for (var in vars_to_plot) {
 }
 
 ```
+
+Model Building
+
+Non-Linear Models:
+
+Split the Data 80-20 in training and testing data
+```{r}
+set.seed(4)
+
+#removing brand code column it has 119 missing values which interferes and is not needed for non-linear model building
+Student_Cleaned_NLM <- Student_Cleaned[,-1]
+
+# index for training
+index <- createDataPartition(Student_Cleaned_NLM$PH, p = .8, list = FALSE)
+
+# training data 80%
+train_x <- Student_Cleaned_NLM[index, ] %>% select(-PH)
+train_y <- Student_Cleaned_NLM[index, 'PH']
+
+# testing data 20%
+test_x <- Student_Cleaned_NLM[-index, ] %>% select(-PH)
+test_y <- Student_Cleaned_NLM[-index, 'PH']
+
+#
+
+```
+
+KNN
+```{r}
+set.seed(4)
+
+knn_model <- train(x=train_x, y=train_y,
+                  method = "knn",
+                  tuneLength=20, 
+                  trainControl=trainControl(method = "repeatedcv", repeats = 5),
+                  preProc = c("center", "scale"))
+knn_prediction <- predict(knn_model, newdata = test_x)
+
+postResample(knn_prediction, test_y)
+```
+
+
+SVM
+```{r}
+set.seed(4)
+
+svm_model <- train(x=train_x, y=train_y,
+                  method = "svmRadial",
+                  preProc = c("center", "scale"),
+                  tuneLength = 14,
+                  trControl = trainControl(method = "cv"))
+
+svm_prediction <- predict(svm_model, newdata = test_x)
+
+postResample(svm_prediction, test_y)
+```
+
+MARS
+```{r}
+
+# create a tuning grid
+mars_grid<- expand.grid(.degree = 1:2, .nprune = 2:38)
+
+set.seed(4)
+
+
+mars_model <- train(train_x, train_y,
+                  method = "earth",
+                  tuneGrid = mars_grid,
+                  trControl = trainControl(method = "cv"))
+
+mars_prediction <- predict(mars_model, test_x)
+
+postResample(mars_prediction, test_y)
+```
+
+Random Forest
+```{r}
+
+set.seed(4)
+
+
+
+random_forest_model <- randomForest(train_x, train_y, 
+                        importance = TRUE,
+                        ntree = 1000)
+
+
+random_forest_model_prediction<- predict(random_forest_model, test_x)
+
+postResample(random_forest_model_prediction, test_y)
+```
+
+
+Model Evaluation
+```{r}
+rbind(KNN= postResample(knn_prediction, test_y),
+      SVM = postResample(svm_prediction , test_y),
+      MARS = postResample(mars_prediction, test_y),
+      RandomForest = postResample(random_forest_model_prediction, test_y))
+    
+```
+
+The  non-linear model with the best opimal resampling and test set performance of the four is the Random Forest model. It has the lowest RMSE (a lower RMSE predicts a better performing model) of all the models at: 0.61. It also has the highest Rsquared (a higher Rsquared indicates a better fit) of all the models at 0.64.
