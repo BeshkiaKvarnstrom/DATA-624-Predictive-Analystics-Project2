@@ -574,3 +574,33 @@ rbind(KNN= postResample(knn_prediction, test_y),
 ```
 
 The  non-linear model with the best opimal resampling and test set performance of the four is the Random Forest model. It has the lowest RMSE (a lower RMSE predicts a better performing model) of all the models at: 0.61. It also has the highest Rsquared (a higher Rsquared indicates a better fit) of all the models at 0.64.
+
+# Variable Importance
+
+```{r Variable Importance, message=FALSE, warnings=FALSE}
+var_imp<-varImp(random_forest_model)
+var_imp
+plot(varImp(random_forest_model), main="Random Forest")
+
+
+```
+For our optimal Random Forest model, Mnf Flow enjoys the greatest impact (54.42), above others like Carb Pressure1 (27.02) and Carb Volume (21.26), all of which contribute meaningfully to predicting PH. Minimal contributors such as PSC Fill and PSC CO2 can be diesregarded in follow-up analysis, as we should focus optimization strategies on top predictors. We next employed our Random Forest model to form a prediction.
+
+# Forecast
+```{r}
+random_forest_predictions <- predict(random_forest_model, test_x)
+predictions_tibble <- tibble(Predicted_PH = random_forest_predictions)
+print(predictions_tibble)
+
+ggplot(predictions_tibble, aes(x = Predicted_PH)) +
+  geom_histogram(binwidth = 0.1, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Predicted PH", 
+       x = "Predicted PH", 
+       y = "Frequency") +
+  theme_minimal()
+
+write.csv(test_x$PH, "StudentPHPredictions.csv")
+
+```
+The output would indicate concentration of the predictions around around 0, largely symetric in disttribution and concentration toward the mean, all of which suggests that our model is accurate in predicting PH values within a fairly narrow range. 
+
