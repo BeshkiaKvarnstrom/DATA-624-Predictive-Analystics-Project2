@@ -473,6 +473,136 @@ for (var in vars_to_plot) {
 
 Model Building
 
+Linear Models:
+Split the Data 80-20 in training and testing data
+
+```{r}
+set.seed(271)
+
+#removing brand code column it has 119 missing values which interferes and is not needed for non-linear model building
+Student_lm <- Student_Cleaned[,-1]
+
+# index for training
+index <- createDataPartition(Student_lm$PH, p = .8, list = FALSE)
+
+# training data 80%
+train_x <- Student_lm[index, ] %>% select(-PH)
+train_y <- Student_lm[index, 'PH']
+
+# testing data 20%
+test_x <- Student_lm[-index, ] %>% select(-PH)
+test_y <- Student_lm[-index, 'PH']
+
+```
+
+Simple Linear Regression
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 10)
+set.seed(127)
+lmFit <- train(x = train_x, y = train_y,
+method = "lm", trControl = ctrl)
+lm_predict <- predict(lmFit, test_x)
+
+postResample(lm_predict, test_y)
+```
+
+Robust Linear Model
+
+```{r}
+set.seed(127)
+rlmPCA <- train(train_x, train_y,
+ method = "rlm",
+ preProcess = "pca",
+ trControl = ctrl)
+ robust_predict <- predict(rlmPCA, test_x)
+
+postResample(robust_predict, test_y)
+```
+
+```{r}
+plot(rlmPCA)
+```
+
+
+Partial Linear Squares
+
+```{r}
+ set.seed(100)
+ plsTune <- train(train_x, train_y,
+ method = "pls",
+ ## The default tuning grid evaluates
+ ## components 1... tuneLength
+ tuneLength = 20,
+ trControl = ctrl,
+ preProc = c("center", "scale"))
+  pls_predict <- predict(plsTune, test_x)
+
+postResample(pls_predict, test_y)
+```
+
+```{r}
+ plot(plsTune)
+```
+
+Enet Model
+
+```{r}
+library(elasticnet)
+set.seed(247)
+# grid of penalties
+enetGrid <- expand.grid(.lambda = c(0, 0.01, .1), .fraction = seq(.05, 1, length = 20))
+# tuning penalized regression model
+enetTune <- train(train_x, train_y, method = "enet",
+                  tuneGrid = enetGrid, trControl = ctrl, preProc = c("center", "scale"))
+enet_predict <- predict(enetTune, test_x)
+
+postResample(enet_predict, test_y)
+```
+
+```{r}
+plot(enetTune)
+```
+
+Ridge Model
+
+```{r}
+ ## Define the candidate set of values
+ ridgeGrid <- data.frame(.lambda = seq(0, .1, length = 15))
+ set.seed(100)
+ ridgeRegFit <- train(train_x, train_y,
+ method = "ridge",
+ ## Fir the model over many penalty values
+ tuneGrid = ridgeGrid,
+ trControl = ctrl,
+ ## put the predictors on the same scale
+ preProc = c("center", "scale"))
+ridge_predict <- predict(ridgeRegFit, test_x)
+
+postResample(ridge_predict, test_y)
+```
+
+```{r}
+plot(ridgeRegFit)
+```
+
+LARS
+
+```{r}
+set.seed(624)
+
+larsTune <- train(train_x, train_y, method = "lars", metric = "Rsquared",
+                    tuneLength = 20, trControl = ctrl, preProc = c("center", "scale"))
+
+lars_predict <- predict(larsTune, test_x)
+
+postResample(lars_predict, test_y)
+```
+
+```{r}
+plot(larsTune)
+```
+
 Non-Linear Models:
 
 Split the Data 80-20 in training and testing data
@@ -569,11 +699,18 @@ Model Evaluation
 rbind(KNN= postResample(knn_prediction, test_y),
       SVM = postResample(svm_prediction , test_y),
       MARS = postResample(mars_prediction, test_y),
-      RandomForest = postResample(random_forest_model_prediction, test_y))
+      RandomForest = postResample(random_forest_model_prediction, test_y),
+      SLR = postResample(lm_predict, test_y),
+      RLM = postResample(robust_predict, test_y),
+      PLS = postResample(pls_predict, test_y),
+      ENET = postResample(enet_predict, test_y),
+      Ridge = postResample(ridge_predict, test_y),
+      LARS = postResample(lars_predict, test_y))
     
 ```
 
-The  non-linear model with the best opimal resampling and test set performance of the four is the Random Forest model. It has the lowest RMSE (a lower RMSE predicts a better performing model) of all the models at: 0.61. It also has the highest Rsquared (a higher Rsquared indicates a better fit) of all the models at 0.64.
+
+The  model with the best opimal resampling and test set performance of all the models is the Random Forest model. It has the lowest RMSE (a lower RMSE predicts a better performing model) of all the models at: 0.61. It also has the highest Rsquared (a higher Rsquared indicates a better fit) of all the models at 0.64.
 
 # Variable Importance
 
