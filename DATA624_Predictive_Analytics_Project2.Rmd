@@ -1,6 +1,6 @@
 ---
 title: "DATA 624  Predictive Analytics (Project 2)"
-author: "Beshkia Kvarnstrom, Nikoleta Emanouilidi, Evan McLaughlin, Victor Torres & Vladimir"
+author: "Beshkia Kvarnstrom, Nikoleta Emanouilidi, Evan McLaughlin, Victor Torres & Vladimir Nimchenko"
 date: "2024-12-03"
 output: pdf_document
 ---
